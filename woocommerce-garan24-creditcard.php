@@ -1,6 +1,6 @@
 <?php
 /* Garan24 AIM Payment Gateway Class */
-class WC_Gateway_garan24 extends WC_Payment_Gateway {
+class WC_Gateway_garan24_creditcard extends WC_Payment_Gateway {
 
 	// Setup our Gateway's id, description and other values
 	function __construct() {
@@ -107,41 +107,17 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 
 		// Decide which URL to post to
 		$environment_url = ( "FALSE" == $environment )
-						   ? 'http://www.plugin.garan24.ru/processpay'
-						   : 'http://www.plugin.garan24.ru/test/processpay';
+						   ? 'http://plugin.garan24.ru/processpay'
+						   : 'http://plugin.garan24.ru/test/processpay';
 
 		// This is where the fun stuff begins
-		$payload = [
+		$payload = array(
 			// Garan24 Credentials and API Info
 			"x_secret"           	=> $this->garan24_secret,
 			"x_key"              	=> $this->garan24_key,
-			"version"            	=> "1.0"
-        ];
-        //$data = json_decode(json_encode($customer_order), true);
-        $payload["order"] = [
-            "payment_details"=>[
-                "method_id"=> $customer_order->payment_method,//"garan24",
-                "method_title"=> $customer_order->payment_method_title,//"Garan24 Pay",
-                "paid"=> false
-            ],
-            "billing_address" =>[
-				"first_name" => $customer_order->billing_first_name,
-				"last_name" => $customer_order->billing_last_name,
-				"address_1" => $customer_order->billing_address_1,
-				"city" => $customer_order->billing_city,
-				"state" => $customer_order->billing_state,
-				"postcode" => $customer_order->billing_postcode,
-				"country" => $customer_order->billing_country,
-				"phone" => $customer_order->billing_phone,
-				"email" => $customer_order->billing_email
-            ],
-            "line_items" =>$customer_order->get_items(),
-            "order_total" => $customer_order->order_total,
-            "order_currency" => $customer_order->order_currency,
-            "customer_ip_address" => $customer_order->customer_ip_address,
-            "customer_user_agent" => $customer_order->customer_user_agent
-        ];
-		/* Order total
+			"x_version"            	=> "1.0",
+
+			// Order total
 			"x_amount"             	=> $customer_order->order_total,
 
 
@@ -180,11 +156,11 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 			"x_customer_ip"        	=> $_SERVER['REMOTE_ADDR'],
 
 		);
-        */
+
 		// Send this payload to Garan24 for processing
 		$response = wp_remote_post( $environment_url, array(
 			'method'    => 'POST',
-			'body'      => json_encode($payload),
+			'body'      => http_build_query( $payload ),
 			'timeout'   => 90,
 			'sslverify' => false,
 		) );
