@@ -37,12 +37,16 @@
 
 	// If we made it this far, then include our Gateway Class
 	include_once( 'woocommerce-garan24.php' );
+	include_once( 'woocommerce-garan24-creditcard.php' );
+	include_once( 'woocommerce-garan24-partpay.php' );
 
 	// Now that we have successfully included our class,
 	// Lets add it too WooCommerce
 	add_filter( 'woocommerce_payment_gateways', 'add_garan24_gateway' );
 	function add_garan24_gateway( $methods ) {
 		$methods[] = 'WC_Gateway_garan24';
+		$methods[] = 'WC_Gateway_garan24_creditcard';
+		$methods[] = 'WC_Gateway_garan24_partpay';
 		return $methods;
 	}
  }

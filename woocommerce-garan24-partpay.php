@@ -1,21 +1,21 @@
 <?php
 /* Garan24 AIM Payment Gateway Class */
-class WC_Gateway_garan24_creditcard extends WC_Payment_Gateway {
+class WC_Gateway_garan24_partpay extends WC_Payment_Gateway {
 
 	// Setup our Gateway's id, description and other values
 	function __construct() {
 
 		// The global ID for this Payment method
-		$this->id = "garan24_cc";
+		$this->id = "garan24_pp";
 
 		// The Title shown on the top of the Payment Gateways Page next to all the other Payment Gateways
-		$this->method_title = __( "Garan24 Credit Card", 'garan24_cc' );
+		$this->method_title = __( "Garan24 Part Pay", 'garan24_pp' );
 
 		// The description for this Payment Gateway, shown on the actual Payment options page on the backend
-		$this->method_description = __( "Garan24 Payment Gateway Plug-in for WooCommerce", 'garan24_cc' );
+		$this->method_description = __( "Garan24 Payment Gateway Plug-in for WooCommerce", 'garan24_pp' );
 
 		// The title to be used for the vertical tabs that can be ordered top to bottom
-		$this->title = __( "Garan24 Credit Card", 'garan24_cc' );
+		$this->title = __( "Garan24 Part pay", 'garan24_pp' );
 
 		// If you want to show an image next to the gateway's name on the frontend, enter a URL to an image.
 		$this->icon = null;
@@ -25,7 +25,7 @@ class WC_Gateway_garan24_creditcard extends WC_Payment_Gateway {
 		$this->has_fields = true;
 
 		// Supports the default credit card form
-		$this->supports = array( 'default_credit_card_form' );
+		//$this->supports = array( 'default_credit_card_form' );
 
 		// This basically defines your settings which are then loaded with init_settings()
 		$this->init_form_fields();
@@ -123,9 +123,9 @@ class WC_Gateway_garan24_creditcard extends WC_Payment_Gateway {
                 "method_id"=> $customer_order->payment_method,//"garan24",
                 "method_title"=> $customer_order->payment_method_title,//"Garan24 Pay",
 				// Credit Card Information
-				"cardnumber"=> str_replace( array(' ', '-' ), '', $_POST['garan24_cc-card-number'] ),
-				"cardexpire"=> ( isset( $_POST['garan24_cc-card-cvc'] ) ) ? $_POST['garan24_cc-card-cvc'] : '',
-				"cardcvc"=> str_replace( array( '/', ' '), '', $_POST['garan24_cc-card-expiry'] ),
+				//"cardnumber"=> str_replace( array(' ', '-' ), '', $_POST['garan24_pp-card-number'] ),
+				//"cardexpire"=> ( isset( $_POST['garan24_pp-card-cvc'] ) ) ? $_POST['garan24_pp-card-cvc'] : '',
+				//"cardcvc"=> str_replace( array( '/', ' '), '', $_POST['garan24_pp-card-expiry'] ),
                 "paid"=> false
             ],
             "billing_address" =>[
