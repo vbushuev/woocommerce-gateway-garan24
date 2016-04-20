@@ -107,8 +107,8 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 
 		// Decide which URL to post to
 		$environment_url = ( "FALSE" == $environment )
-						   ? 'http://plugin.garan24.ru/procsspay'
-						   : 'http://plugin.garan24.ru/test/procsspay';
+						   ? 'http://plugin.garan24.ru/processpay'
+						   : 'http://plugin.garan24.ru/test/processpay';
 
 		// This is where the fun stuff begins
 		$payload = array(
