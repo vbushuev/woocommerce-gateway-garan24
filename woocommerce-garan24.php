@@ -22,7 +22,7 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 
 		// Bool. Can be set to true if you want payment fields to show on the checkout
 		// if doing a direct integration, which we are doing in this case
-		$this->has_fields = true;
+		$this->has_fields = false;
 
 		// Supports the default credit card form
 		//$this->supports = array( 'default_credit_card_form' );
@@ -40,7 +40,7 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 		}
 
 		// Lets check for SSL
-		add_action( 'admin_notices', array( $this,	'do_ssl_check' ) );
+		//add_action( 'admin_notices', array( $this,	'do_ssl_check' ) );
 
 		// Save settings
 		if ( is_admin() ) {
@@ -50,6 +50,7 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 			// class will be used instead
 			add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		}
+		add_action('woocommerce_receipt_garan24', array(&$this, 'receipt_page'));
 	} // End __construct()
 
 	// Build the administration fields for this specific Gateway
@@ -97,90 +98,12 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 	// Submit payment and handle response
 	public function process_payment( $order_id ) {
 		global $woocommerce;
-
-		// Get this Order's information so that we know
-		// who to charge and how much
-		$customer_order = new WC_Order( $order_id );
-
-		// Are we testing right now or is it a real transaction
-		$environment = ( $this->environment == "yes" ) ? 'TRUE' : 'FALSE';
-
-		// Decide which URL to post to
-		$environment_url = ( "FALSE" == $environment )
-						   ? 'https://www.garan24.ru/service/public/processpay'
-						   : 'https://www.garan24.ru/service/public/processpay';
-
-		// This is where the fun stuff begins
-		$payload = [
-			// Garan24 Credentials and API Info
-			"x_secret"           	=> $this->garan24_secret,
-			"x_key"              	=> $this->garan24_key,
-			"version"            	=> "1.0"
+		$order = new WC_Order( $order_id );
+        return [
+			'result' => 'success',
+			'redirect' => add_query_arg('order',$order->id, add_query_arg('key', $order->order_key, get_permalink(get_option('woocommerce_pay_page_id'))))
         ];
-        //$data = json_decode(json_encode($customer_order), true);
-        $payload["order"] = [
-            "payment_details"=>[
-                "method_id"=> $customer_order->payment_method,//"garan24",
-                "method_title"=> $customer_order->payment_method_title,//"Garan24 Pay",
-                "paid"=> false
-            ],
-            "billing_address" =>[
-				"first_name" => $customer_order->billing_first_name,
-				"last_name" => $customer_order->billing_last_name,
-				"address_1" => $customer_order->billing_address_1,
-				"city" => $customer_order->billing_city,
-				"state" => $customer_order->billing_state,
-				"postcode" => $customer_order->billing_postcode,
-				"country" => $customer_order->billing_country,
-				"phone" => $customer_order->billing_phone,
-				"email" => $customer_order->billing_email
-            ],
-            "line_items" =>$customer_order->get_items(),
-            "order_total" => $customer_order->order_total,
-            "order_currency" => $customer_order->order_currency,
-            "customer_ip_address" => $customer_order->customer_ip_address,
-            "customer_user_agent" => $customer_order->customer_user_agent
-        ];
-		/* Order total
-			"x_amount"             	=> $customer_order->order_total,
 
-
-			"x_type"               	=> 'AUTH_CAPTURE',
-			"x_invoice_num"        	=> str_replace( "#", "", $customer_order->get_order_number() ),
-			"x_test_request"       	=> $environment,
-			"x_delim_char"         	=> '|',
-			"x_encap_char"         	=> '',
-			"x_delim_data"         	=> "TRUE",
-			"x_relay_response"     	=> "FALSE",
-			"x_method"             	=> "CC",
-
-			// Billing Information
-			"x_first_name"         	=> $customer_order->billing_first_name,
-			"x_last_name"          	=> $customer_order->billing_last_name,
-			"x_address"            	=> $customer_order->billing_address_1,
-			"x_city"              	=> $customer_order->billing_city,
-			"x_state"              	=> $customer_order->billing_state,
-			"x_zip"                	=> $customer_order->billing_postcode,
-			"x_country"            	=> $customer_order->billing_country,
-			"x_phone"              	=> $customer_order->billing_phone,
-			"x_email"              	=> $customer_order->billing_email,
-
-			// Shipping Information
-			"x_ship_to_first_name" 	=> $customer_order->shipping_first_name,
-			"x_ship_to_last_name"  	=> $customer_order->shipping_last_name,
-			"x_ship_to_company"    	=> $customer_order->shipping_company,
-			"x_ship_to_address"    	=> $customer_order->shipping_address_1,
-			"x_ship_to_city"       	=> $customer_order->shipping_city,
-			"x_ship_to_country"    	=> $customer_order->shipping_country,
-			"x_ship_to_state"      	=> $customer_order->shipping_state,
-			"x_ship_to_zip"        	=> $customer_order->shipping_postcode,
-
-			// Some Customer Information
-			"x_cust_id"            	=> $customer_order->user_id,
-			"x_customer_ip"        	=> $_SERVER['REMOTE_ADDR'],
-
-		);
-        */
 		// Send this payload to Garan24 for processing
 		$response = wp_remote_post( $environment_url, array(
 			'method'    => 'POST',
@@ -230,7 +153,78 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 	public function validate_fields() {
 		return true;
 	}
+	public function receipt_page($order_id){
+		global $woocommerce;
+		// Get this Order's information so that we know
+		// who to charge and how much
+		$customer_order = new WC_Order( $order_id );
 
+		// Are we testing right now or is it a real transaction
+		$environment = ( $this->environment == "yes" ) ? 'TRUE' : 'FALSE';
+
+		// Decide which URL to post to
+		$environment_url = ( "FALSE" == $environment )
+						   ? 'https://garan24.ru/service/public/processpay'
+						   : 'https://garan24.ru/service/public/processpay';
+
+		// This is where the fun stuff begins
+		$payload = [
+			// Garan24 Credentials and API Info
+			"x_secret"           	=> $this->garan24_secret,
+			"x_key"              	=> $this->garan24_key,
+			"version"            	=> "1.0"
+        ];
+        //$data = json_decode(json_encode($customer_order), true);
+        $payload["order"] = [
+			"order_id"=>$order_id,
+            "payment_details"=>[
+                "method_id"=> $customer_order->payment_method,//"garan24",
+                "method_title"=> $customer_order->payment_method_title,//"Garan24 Pay",
+                "paid"=> false
+            ],
+            "billing_address" =>[
+				"first_name" => $customer_order->billing_first_name,
+				"last_name" => $customer_order->billing_last_name,
+				"address_1" => $customer_order->billing_address_1,
+				"city" => $customer_order->billing_city,
+				"state" => $customer_order->billing_state,
+				"postcode" => $customer_order->billing_postcode,
+				"country" => $customer_order->billing_country,
+				"phone" => $customer_order->billing_phone,
+				"email" => $customer_order->billing_email
+            ],
+            "line_items" =>$customer_order->get_items(),
+            "order_total" => $customer_order->order_total,
+            "order_currency" => $customer_order->order_currency,
+            "customer_ip_address" => $customer_order->customer_ip_address,
+            "customer_user_agent" => $customer_order->customer_user_agent
+        ];
+		$json_data = json_encode($payload);
+		$redirect_url = $environment_url."#".$json_data;
+		echo '<p>pay by garan24</p>';
+		echo '<script type="text/javascript">
+			jQuery(function(){
+				jQuery("body").block({
+            			message: "<img src=\"'.$woocommerce->plugin_url().'/assets/images/ajax-loader.svg\" alt=\"Redirecting…\" style=\"float:left; margin-right: 10px;\" />'.__('Thank you for your order. We are now redirecting you to Payment Gateway to make payment.', 'garan24').'",
+                		overlayCSS:{
+            				background: "#fff",
+                			opacity: 0.6
+    					},
+    					css: {
+        					padding:        20,
+            				textAlign:      "center",
+            				color:          "#555",
+            				border:         "3px solid #aaa",
+            				backgroundColor:"#fff",
+            				cursor:         "wait",
+            				lineHeight:"32px"
+    					}
+				});
+				$.post({url:"'.$environment_url.'",data:'.$json_data.'});
+			});
+		</script>';
+
+	}
 	// Check if we are forcing SSL on checkout pages
 	// Custom function not required by the Gateway
 	public function do_ssl_check() {

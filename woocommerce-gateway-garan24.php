@@ -28,7 +28,7 @@
  }
 
  // Include our Gateway Class and Register Payment Gateway with WooCommerce
- add_action( 'plugins_loaded', 'garan24_init', 0 );
+ 
  function garan24_init(){
 	 // If the parent WC_Payment_Gateway class doesn't exist
 	// it means WooCommerce is not installed on the site
@@ -50,9 +50,10 @@
 		return $methods;
 	}
  }
+add_action( 'plugins_loaded', 'garan24_init', 0 );
 
 // Add custom action links
- add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'garan24_action_links' );
+
  function garan24_action_links( $links ) {
 	 $plugin_links = array(
 		'<a href="' . admin_url( 'admin.php?page=wc-settings&tab=checkout' ) . '">' . __( 'Settings', 'garan24' ) . '</a>',
@@ -62,6 +63,6 @@
 	return array_merge( $plugin_links, $links );
  }
 
-
+ add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'garan24_action_links' );
 
 ?>
