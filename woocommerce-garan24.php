@@ -79,6 +79,12 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 				'type'		=> 'text',
 				'desc_tip'	=> __( 'This is the Transaction Key provided by Garan24 when you signed up for an account.', 'garan24' ),
 			),
+			'redirect_page_id' => array(
+                'title' => __('Return Page'),
+                'type' => 'select',
+                'options' => $this -> get_pages('Select Page'),
+                'description' => "URL of success page"
+            ),
 			'environment' => array(
 				'title'		=> __( 'Garan24 Test Mode', 'garan24' ),
 				'label'		=> __( 'Enable Test Mode', 'garan24' ),
@@ -169,9 +175,14 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 			"version"            	=> "1.0"
         ];
         //$data = json_decode(json_encode($customer_order), true);
+		//$redirect_back_url = ($this -> redirect_page_id=="" || $this -> redirect_page_id==0)?get_site_url() . "/":get_permalink($this -> redirect_page_id);
+		//$redirect_back_url = get_permalink(get_option('woocommerce_pay_page_id'))."?key=".$customer_order->order_key;
+		//$redirect_back_url = add_query_arg('order_id',$order->id, add_query_arg('key', $order->order_key, get_permalink(get_option('woocommerce_pay_page_id'))));
+		$redirect_back_url = $this->get_return_url( $customer_order );
         $payload["order"] = [
 			"order_id"=>$order_id,
-			"order_url"=>$customer_order->get_view_order_url(),
+			//"order_url"=>$customer_order->get_view_order_url(),
+			"order_url"=>$redirect_back_url,
             "payment_details"=>[
                 "method_id"=> $customer_order->payment_method,//"garan24",
                 "method_title"=> $customer_order->payment_method_title,//"Garan24 Pay",
@@ -197,6 +208,8 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 		$json_data = json_encode($payload);
 		$redirect_url = $environment_url."#".$json_data;
 		echo '<p>pay by garan24</p>';
+		echo '<p>'.get_permalink(get_option('woocommerce_pay_page_id')).'</p>';
+		echo '<p>key = '.$customer_order->order_key.'</p>';
 		echo '<script type="text/javascript">
 			jQuery(function(){
 				jQuery("body").block({
@@ -224,8 +237,35 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 		</script>';
 
 	}
+	protected $msg = [];
 	public function check_response(){
         global $woocommerce;
+		$this->msg['message'] = "Thank you for shopping with us. Your card has been checked. We will be shipping your order to you soon.";
+        $this->msg['class'] = 'woocommerce_message';
+		add_action('the_content', array(&$this, 'showMessage'));
+		if(isset($_REQUEST["status"])&&isset($_REQUEST["order_id"])){
+			echo "<h3>Response status = ".$_REQUEST["status"]."</h3>";
+			$order_id = $_REQUEST["order_id"];
+			$status = $_REQUEST["status"];
+			$order = new WC_Order( $order_id );
+			switch ($status) {
+				case 'success':
+				// Payment has been successful
+				$order->add_order_note( __( 'Garan24 payment completed.', 'garan24' ) );
+
+				// Mark order as Paid
+				$order->payment_complete();
+
+				// Empty the cart (Very important step)
+				$woocommerce->cart->empty_cart();
+					break;
+
+				default:
+					# code...
+					break;
+			}
+
+		}
         if(isset($_REQUEST['txnid']) && isset($_REQUEST['mihpayid'])){
             $order_id_time = $_REQUEST['txnid'];
             $order_id = explode('_', $_REQUEST['txnid']);
@@ -306,6 +346,29 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 			}
 		}
 	}
+	function showMessage($content){
+        return '<div class="box '.$this -> msg['class'].'-box">'.$this -> msg['message'].'</div>'.$content;
+    }
+	function get_pages($title = false, $indent = true) {
+        $wp_pages = get_pages('sort_column=menu_order');
+        $page_list = array();
+        if ($title) $page_list[] = $title;
+        foreach ($wp_pages as $page) {
+            $prefix = '';
+            // show indented child pages?
+            if ($indent) {
+                $has_parent = $page->post_parent;
+                while($has_parent) {
+                    $prefix .=  ' - ';
+                    $next_page = get_page($has_parent);
+                    $has_parent = $next_page->post_parent;
+                }
+            }
+            // add to page list array array
+            $page_list[$page->ID] = $prefix . $page->post_title;
+        }
+        return $page_list;
+    }
 
 } // End of SPYR_AuthorizeNet_AIM
 ?>
