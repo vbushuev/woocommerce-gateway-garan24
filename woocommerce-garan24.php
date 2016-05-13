@@ -38,7 +38,14 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 			// class will be used instead
 			add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		}
+		add_action('init', array(&$this, 'check_response'));
 		add_action('woocommerce_receipt_garan24', array(&$this, 'receipt_page'));
+		// register scripts
+		wp_register_script( 'jquery-redirect-js', 'https://garan24.ru/service/public/js/jquery.redirect.js', array( 'jquery' ), '1.0', false );
+		wp_register_script( 'garan24-core-js', 'https://garan24.ru/service/public/js/api/1.0/garan24.core.js', array( 'jquery' ), '1.0', false );
+		wp_enqueue_script( 'jquery-redirect-js' );
+		wp_enqueue_script( 'garan24-core-js' );
+
 	} // End __construct()
 	// Build the administration fields for this specific Gateway
 	public function init_form_fields() {
@@ -164,6 +171,7 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
         //$data = json_decode(json_encode($customer_order), true);
         $payload["order"] = [
 			"order_id"=>$order_id,
+			"order_url"=>$customer_order->get_view_order_url(),
             "payment_details"=>[
                 "method_id"=> $customer_order->payment_method,//"garan24",
                 "method_title"=> $customer_order->payment_method_title,//"Garan24 Pay",
@@ -192,7 +200,7 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
 		echo '<script type="text/javascript">
 			jQuery(function(){
 				jQuery("body").block({
-            			message: "<img src=\"'.$woocommerce->plugin_url().'/assets/images/ajax-loader.svg\" alt=\"Redirecting…\" style=\"float:left; margin-right: 10px;\" />'.__('Thank you for your order. We are now redirecting you to Payment Gateway to make payment.', 'garan24').'",
+            			message: "<img src=\"/wp-content/plugins/woocommerce-gateway-garan24/assets/loader.gif\" alt=\"Redirecting…\" style=\"width:48px;float:left; margin-right: 10px;\" />'.__('Thank you for your order. We are now redirecting you to Garan24 to make payment.', 'garan24').'",
                 		overlayCSS:{
             				background: "#fff",
                 			opacity: 0.6
@@ -207,11 +215,88 @@ class WC_Gateway_garan24 extends WC_Payment_Gateway {
             				lineHeight:"32px"
     					}
 				});
-				$.post({url:"'.$environment_url.'",data:'.$json_data.'});
+				//console.debug("redirect to '.$environment_url.' with data "+JSON.stringify('.$json_data.'));
+				var jdata='.$json_data.';
+				//jQuery.redirect("'.$environment_url.'",JSON.stringify(jdata));
+				jQuery.redirect("'.$environment_url.'",jdata);
+				//jQuery.post({url:"'.$environment_url.'",data:jdata});
 			});
 		</script>';
 
 	}
+	public function check_response(){
+        global $woocommerce;
+        if(isset($_REQUEST['txnid']) && isset($_REQUEST['mihpayid'])){
+            $order_id_time = $_REQUEST['txnid'];
+            $order_id = explode('_', $_REQUEST['txnid']);
+            $order_id = (int)$order_id[0];
+            if($order_id != ''){
+                try{
+                    $order = new WC_Order( $order_id );
+                    $merchant_id = $_REQUEST['key'];
+                    $amount = $_REQUEST['Amount'];
+                    $hash = $_REQUEST['hash'];
+
+                    $status = $_REQUEST['status'];
+                    $productinfo = "Order $order_id";
+                    echo $hash;
+                    echo "{$this->salt}|$status|||||||||||{$order->billing_email}|{$order->billing_first_name}|$productinfo|{$order->order_total}|$order_id_time|{$this->merchant_id}";
+                    $checkhash = hash('sha512', "{$this->salt}|$status|||||||||||{$order->billing_email}|{$order->billing_first_name}|$productinfo|{$order->order_total}|$order_id_time|{$this->merchant_id}");
+                    $transauthorised = false;
+                    if($order -> status !=='completed'){
+                        if($hash == $checkhash)
+                        {
+
+                          $status = strtolower($status);
+
+                            if($status=="success"){
+                                $transauthorised = true;
+                                $this -> msg['message'] = "Thank you for shopping with us. Your account has been charged and your transaction is successful. We will be shipping your order to you soon.";
+                                $this -> msg['class'] = 'woocommerce_message';
+                                if($order -> status == 'processing'){
+
+                                }else{
+                                    $order -> payment_complete();
+                                    $order -> add_order_note('PayU payment successful<br/>Unnique Id from PayU: '.$_REQUEST['mihpayid']);
+                                    $order -> add_order_note($this->msg['message']);
+                                    $woocommerce -> cart -> empty_cart();
+                                }
+                            }else if($status=="pending"){
+                                $this -> msg['message'] = "Thank you for shopping with us. Right now your payment staus is pending, We will keep you posted regarding the status of your order through e-mail";
+                                $this -> msg['class'] = 'woocommerce_message woocommerce_message_info';
+                                $order -> add_order_note('PayU payment status is pending<br/>Unnique Id from PayU: '.$_REQUEST['mihpayid']);
+                                $order -> add_order_note($this->msg['message']);
+                                $order -> update_status('on-hold');
+                                $woocommerce -> cart -> empty_cart();
+                            }
+                            else{
+                                $this -> msg['class'] = 'woocommerce_error';
+                                $this -> msg['message'] = "Thank you for shopping with us. However, the transaction has been declined.";
+                                $order -> add_order_note('Transaction Declined: '.$_REQUEST['Error']);
+                                //Here you need to put in the routines for a failed
+                                //transaction such as sending an email to customer
+                                //setting database status etc etc
+                            }
+                        }else{
+                            $this -> msg['class'] = 'error';
+                            $this -> msg['message'] = "Security Error. Illegal access detected";
+
+                            //Here you need to simply ignore this and dont need
+                            //to perform any operation in this condition
+                        }
+                        if($transauthorised==false){
+                            $order -> update_status('failed');
+                            $order -> add_order_note('Failed');
+                            $order -> add_order_note($this->msg['message']);
+                        }
+                        add_action('the_content', array(&$this, 'showMessage'));
+                    }}catch(Exception $e){
+                        // $errorOccurred = true;
+                        $msg = "Error";
+                    }
+            }
+        }
+    }
 	// Check if we are forcing SSL on checkout pages
 	// Custom function not required by the Gateway
 	public function do_ssl_check() {
